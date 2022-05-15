@@ -8,6 +8,7 @@ snd_dir = path.join(path.dirname(__file__), "snd")
 WIDTH = 480
 HEIGHT = 600
 FPS = 60
+POWERUP_TIME = 5000
 
 # define colors
 WHITE = (255, 255, 255)
@@ -75,6 +76,8 @@ class Player(pygame.sprite.Sprite):
         self.lives = 3
         self.hidden = False
         self.hide_timer = pygame.time.get_ticks()
+        self.power = 1
+        self.power_time = pygame.time.get_ticks()
 
     def update(self):
         self.speedx = 0
@@ -101,23 +104,39 @@ class Player(pygame.sprite.Sprite):
             self.rect.centerx = WIDTH / 2
             self.rect.bottom = HEIGHT - 10
 
-            
+        # Timeout for powerups
+        if self.power >= 2 and pygame.time.get_ticks() - self.power_time > POWERUP_TIME:
+            self.power -= 1
+            self.power_time = pygame.time.get_ticks()
 
     def shoot(self):
         now = pygame.time.get_ticks()
         if now - self.last_shoot > self.shoot_delay:
             self.last_shoot = now
-            bullet = Bullet(self.rect.centerx, self.rect.top)
-            all_sprites.add(bullet)
-            bullets_group.add(bullet)
-        
-            shoot_sound.play()
+            if self.power == 1:
+                bullet = Bullet(self.rect.centerx, self.rect.top)
+                all_sprites.add(bullet)
+                bullets_group.add(bullet)
+                shoot_sound.play()
+            if self.power >= 2:
+                bullet1 = Bullet(self.rect.left, self.rect.centery)
+                bullet2 = Bullet(self.rect.right, self.rect.centery)
+                all_sprites.add(bullet1)
+                all_sprites.add(bullet2)
+                bullets_group.add(bullet1)
+                bullets_group.add(bullet2)
+                shoot_sound.play()
 
     def hide(self):
         # Hide player temporality
         self.hidden = True
         self.hide_timer = pygame.time.get_ticks()
         self.rect.center = (WIDTH / 2, HEIGHT + 200)
+
+    def powerup(self):
+        self.power += 1
+        self.power_time = pygame.time.get_ticks()
+
 
 
 class Mob(pygame.sprite.Sprite):
@@ -273,6 +292,9 @@ for snd in ["expl3.wav", "expl6.wav"]:
 
 player_die_sound = pygame.mixer.Sound(path.join(snd_dir, "rumble1.ogg"))
 
+shield_sound = pygame.mixer.Sound(path.join(snd_dir, "pow4.wav"))
+power_sound = pygame.mixer.Sound(path.join(snd_dir, "pow5.wav"))
+
 
 pygame.mixer.music.load(path.join(snd_dir, "tgfcoder-FrozenJam-SeamlessLoop.ogg"))
 pygame.mixer.music.set_volume(0.4)
@@ -340,10 +362,12 @@ while running:
     for hit in powerup_collide:
         if hit.type == "shield":
             player.shield += 20
+            shield_sound.play()
             if player.shield >= 100:
                 player.shield = 100
         if hit.type == "gun":
-            pass
+            player.powerup()
+            power_sound.play()
 
     # if the player died and the explosion has finished playing
     if player.lives == 0 and not death_explosion.alive():
